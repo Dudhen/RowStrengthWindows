@@ -9,8 +9,8 @@ from toga.style.pack import COLUMN, ROW
 # ---------- Константы ----------
 DISTANCES = [500, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000]
 GENDERS_UI = {"ж": "female", "м": "male"}
-EXERCISES_UI_TO_KEY = {"жим": "bench-press", "присед": "squat", "тяга": "deadlift"}
-EXERCISES_KEY_TO_RU = {"bench-press": "жиме", "squat": "приседе", "deadlift": "становой тяге"}
+EXERCISES_UI_TO_KEY = {"жим": "bench-press", "присед": "squat", "становая тяга": "deadlift"}
+EXERCISES_KEY_TO_RU = {"bench-press": "Жим", "squat": "Присед", "deadlift": "Становая тяга"}
 MODE_CHOICES = ["Эргометр", "Штанга"]
 
 REPS_TABLE = {
@@ -142,7 +142,7 @@ class RowStrengthApp(toga.App):
 
         self.res1_title = toga.Label("⏱ Результаты по дистанциям", style=S_LABEL)
         self.res1_output = toga.MultilineTextInput(readonly=True, style=S_OUT)
-        self.res1_strength_title = toga.Label("🏋️ Эквиваленты в штанге", style=S_LABEL)
+        self.res1_strength_title = toga.Label("🏋️ Эквиваленты в штанге с учётом вашего собственного веса", style=S_LABEL)
         self.res1_output_strength = toga.MultilineTextInput(readonly=True, style=S_OUT)
 
         self.mode1_box = toga.Box(
@@ -165,7 +165,7 @@ class RowStrengthApp(toga.App):
         self.bar_weight = toga.NumberInput(step=1, min=1, value=100, style=S_INPUT)
         self.reps = toga.NumberInput(step=1, min=1, max=30, value=5, style=S_INPUT)
 
-        self.res2_title = toga.Label("🏋️ 1ПМ и эквивалент 2 км", style=S_LABEL)
+        self.res2_title = toga.Label("🏋️ 1ПМ и эквивалент на эргометре 2 км", style=S_LABEL)
         self.res2_output = toga.MultilineTextInput(readonly=True, style=S_OUT)
 
         self.mode2_box = toga.Box(
@@ -330,7 +330,7 @@ class RowStrengthApp(toga.App):
                     if kilo == "1":
                         vmap = strength.get(ex_key, {})
                         kilo = round((float(kilo) + float(vmap.get("1"))) / 2, 2)
-                    lines_str.append(f"{ex_label_ru.title()}: {kilo} кг")
+                    lines_str.append(f"{ex_label_ru}: {kilo} кг")
                 self.res1_output_strength.value = "\n".join(lines_str)
 
             else:
@@ -365,7 +365,7 @@ class RowStrengthApp(toga.App):
 
                 self.res2_output.value = "\n".join([
                     f"Оценка 1ПМ: {rep_max} кг",
-                    f"Эквивалент на 2 км: {km2_res}"
+                    f"Эквивалент на эргометре 2 км: {km2_res}"
                 ])
 
         except Exception as e:
