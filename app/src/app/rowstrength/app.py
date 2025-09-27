@@ -1,6 +1,7 @@
 import sys
 import re
 import json
+import asyncio
 from importlib import resources
 import toga
 from toga.style import Pack
@@ -42,15 +43,6 @@ S_OUT = Pack(height=140, font_size=F_INPUT, margin_top=4)
 
 # ---------- Утилиты ----------
 def get_split_500m(distance: str, time: str) -> str:
-    """
-    Возвращает средний сплит на 500 м в формате 'MM:SS.t/500м'.
-    distance — строка с дистанцией (например, '2000' или '2000m').
-    time — строка в формате 'MM:SS' (например, '06:10').
-
-    Пример:
-        get_split_500m("2000", "06:10") -> '01:32.5/500м'
-    """
-    # 1) Парсим дистанцию (берём первые цифры из строки)
     m = re.search(r'\d+', distance)
     if not m:
         raise ValueError("Некорректная дистанция")
@@ -58,7 +50,6 @@ def get_split_500m(distance: str, time: str) -> str:
     if meters <= 0:
         raise ValueError("Дистанция должна быть > 0")
 
-    # 2) Парсим время MM:SS
     m = re.fullmatch(r'\s*(\d{1,2}):(\d{2})\s*', time)
     if not m:
         raise ValueError("Время должно быть в формате MM:SS")
@@ -67,18 +58,11 @@ def get_split_500m(distance: str, time: str) -> str:
         raise ValueError("Секунды должны быть < 60")
 
     total_sec = mm * 60 + ss
-
-    # 3) Считаем сплит в десятых долях секунды (чтобы избежать ошибок float)
-    # сплит = общее_время / (дистанция/500)
-    # переводим сразу в десятые доли секунды (×10) и округляем
     tenths_total = round(total_sec * 10 / (meters / 500))
-
-    # 4) Форматируем как MM:SS.t
-    mins = tenths_total // 600                 # 600 десятых в одной минуте
+    mins = tenths_total // 600
     sec_tenths = tenths_total % 600
     secs = sec_tenths // 10
     tenth = sec_tenths % 10
-
     return f"{mins:02d}:{secs:02d}.{tenth}/500м"
 
 
@@ -116,7 +100,36 @@ def _two(n: int) -> str:
 
 # ---------- Приложение ----------
 class RowStrengthApp(toga.App):
+    # --------- Этап 1: показываем сплэш и через 3 сек строим UI ----------
     def startup(self):
+        # Окно: фиксированный размер + запрет ресайза
+        self.main_window = toga.MainWindow(title=self.formal_name, size=WINDOW_SIZE)
+        try:
+            self.main_window.resizeable = False
+        except Exception:
+            try:
+                self.main_window.resizable = False
+            except Exception:
+                pass
+
+        # Контент сплэша
+        splash_label = toga.Label(
+            "Dev by Dudhen: @arseny.dudhen",
+            style=Pack(font_size=18, text_align="center", margin_top=200, color='#6A5ACD')
+        )
+        splash_box = toga.Box(
+            children=[splash_label],
+            style=Pack(direction=COLUMN, alignment="center", flex=1, margin=40)
+        )
+        self.main_window.content = splash_box
+        self.main_window.show()
+
+        # Через 3 секунды — собираем основной UI
+        loop = asyncio.get_event_loop()
+        loop.call_later(3, self._init_ui)
+
+    # --------- Этап 2: основной UI ----------
+    def _init_ui(self):
         # Данные
         self.rowing_data = load_json_from_package("data_for_rowing_app.json")
         self.strength_data_all = load_json_from_package("data_for_strength_app.json")
@@ -137,12 +150,13 @@ class RowStrengthApp(toga.App):
                                        on_change=self._on_distance_changed, style=S_INPUT)
         self.time_min = toga.Selection(items=["06"], value="06",
                                        on_change=self._on_time_min_changed, style=S_INPUT)
-        self.time_sec = toga.Selection(items=[_two(i) for i in range(60)], value="00", style=S_INPUT)  # 01..59
-        self.time_ms = toga.Selection(items=[str(i) for i in range(10)], value="0", style=S_INPUT)  # 00..99
+        self.time_sec = toga.Selection(items=[_two(i) for i in range(60)], value="00", style=S_INPUT)
+        self.time_ms = toga.Selection(items=[str(i) for i in range(10)], value="0", style=S_INPUT)
 
         self.res1_title = toga.Label("⏱ Результаты по дистанциям", style=S_LABEL)
         self.res1_output = toga.MultilineTextInput(readonly=True, style=S_OUT)
-        self.res1_strength_title = toga.Label("🏋️ Эквиваленты в штанге с учётом вашего собственного веса", style=S_LABEL)
+        self.res1_strength_title = toga.Label("🏋️ Эквиваленты в штанге с учётом вашего собственного веса",
+                                              style=S_LABEL)
         self.res1_output_strength = toga.MultilineTextInput(readonly=True, style=S_OUT)
 
         self.mode1_box = toga.Box(
@@ -183,11 +197,12 @@ class RowStrengthApp(toga.App):
         self.input_stack = toga.Box(style=Pack(direction=COLUMN, gap=8))
         self.results_stack = toga.Box(style=Pack(direction=COLUMN, gap=8))
 
-        # Кнопка — теперь СРАЗУ после ввода
+        # Кнопка — сразу после ввода
         self.calc_button = toga.Button("Рассчитать", on_press=self.calculate, style=S_BTN)
 
         # Шапка
-        head_row = toga.Box(children=[title], style=Pack(direction=ROW, margin_bottom=8))
+        head_row = toga.Box(children=[toga.Label("RowStrength", style=S_HEAD)],
+                            style=Pack(direction=ROW, margin_bottom=8))
         mode_row = toga.Box(children=[toga.Label("Режим:", style=S_LABEL), self.mode_widget], style=S_ROW)
         common_row = toga.Box(children=[toga.Label("Пол:", style=S_LABEL), self.gender,
                                         toga.Label("Вес (кг):", style=S_LABEL), self.weight], style=S_ROW)
@@ -197,28 +212,14 @@ class RowStrengthApp(toga.App):
             children=[head_row, mode_row, common_row, self.input_stack, self.calc_button, self.results_stack],
             style=S_MAIN
         )
-
-        # Прокрутка (на случай маленьких экранов)
         scroller = toga.ScrollContainer(content=main_box)
 
-        # Инициализация минут под текущий пол/дистанцию
+        # Инициализация и установка активных блоков
         self._rebuild_time_selects()
-        # Установить активные блоки по режиму
         self._set_mode_ui()
 
-        # Окно: фиксированный размер + запрет ресайза
-        self.main_window = toga.MainWindow(title=self.formal_name, size=WINDOW_SIZE)
-        try:
-            # имя свойства в разных версиях встречается оба варианта
-            self.main_window.resizeable = False
-        except Exception:
-            try:
-                self.main_window.resizable = False
-            except Exception:
-                pass
-
+        # Подменяем контент окна со сплэша на основной UI
         self.main_window.content = scroller
-        self.main_window.show()
 
     # ---- вспомогательные методы UI ----
     def _make_mode_widget(self):
@@ -258,10 +259,10 @@ class RowStrengthApp(toga.App):
         self._rebuild_time_selects()
 
     def _on_time_min_changed(self, widget):
-        pass  # секунды всегда 01..59
+        pass  # секунды всегда 00..59
 
     def _rebuild_time_selects(self):
-        """Минуты — из JSON для выбранных пола/дистанции. Секунды — 01..59."""
+        """Минуты — из JSON для выбранных пола/дистанции. Секунды — 00..59."""
         try:
             g_key = GENDERS_UI[self.gender.value]
         except Exception:
@@ -279,12 +280,12 @@ class RowStrengthApp(toga.App):
         self.time_min.value = prev_min
 
         sec_items = [_two(i) for i in range(60)]
-        prev_sec = self.time_sec.value if self.time_sec.value in sec_items else "01"
+        prev_sec = self.time_sec.value if self.time_sec.value in sec_items else "00"
         self.time_sec.items = sec_items
         self.time_sec.value = prev_sec
 
         if self.time_ms.value is None:
-            self.time_ms.value = "00"
+            self.time_ms.value = "0"
 
     # ---- бизнес-логика ----
     def calculate(self, widget):
