@@ -41,6 +41,47 @@ S_OUT = Pack(height=140, font_size=F_INPUT, margin_top=4)
 
 
 # ---------- Утилиты ----------
+def get_split_500m(distance: str, time: str) -> str:
+    """
+    Возвращает средний сплит на 500 м в формате 'MM:SS.t/500м'.
+    distance — строка с дистанцией (например, '2000' или '2000m').
+    time — строка в формате 'MM:SS' (например, '06:10').
+
+    Пример:
+        get_split_500m("2000", "06:10") -> '01:32.5/500м'
+    """
+    # 1) Парсим дистанцию (берём первые цифры из строки)
+    m = re.search(r'\d+', distance)
+    if not m:
+        raise ValueError("Некорректная дистанция")
+    meters = int(m.group())
+    if meters <= 0:
+        raise ValueError("Дистанция должна быть > 0")
+
+    # 2) Парсим время MM:SS
+    m = re.fullmatch(r'\s*(\d{1,2}):(\d{2})\s*', time)
+    if not m:
+        raise ValueError("Время должно быть в формате MM:SS")
+    mm, ss = int(m.group(1)), int(m.group(2))
+    if ss >= 60:
+        raise ValueError("Секунды должны быть < 60")
+
+    total_sec = mm * 60 + ss
+
+    # 3) Считаем сплит в десятых долях секунды (чтобы избежать ошибок float)
+    # сплит = общее_время / (дистанция/500)
+    # переводим сразу в десятые доли секунды (×10) и округляем
+    tenths_total = round(total_sec * 10 / (meters / 500))
+
+    # 4) Форматируем как MM:SS.t
+    mins = tenths_total // 600                 # 600 десятых в одной минуте
+    sec_tenths = tenths_total % 600
+    secs = sec_tenths // 10
+    tenth = sec_tenths % 10
+
+    return f"{mins:02d}:{secs:02d}.{tenth}/500м"
+
+
 def load_json_from_package(filename: str):
     with resources.files(__package__).joinpath("data").joinpath(filename).open("r", encoding="utf-8") as f:
         return json.load(f)
@@ -279,7 +320,7 @@ class RowStrengthApp(toga.App):
                 for k in keys:
                     v = distance_data_time[k]
                     meters = _meters_from_key(k)
-                    lines_dist.append(f"{meters} м — {v}.00")
+                    lines_dist.append(f"{meters} м — {v}.00 ({get_split_500m(distance=str(meters), time=v)})")
                 self.res1_output.value = "\n".join(lines_dist)
 
                 # Эквиваленты в штанге
