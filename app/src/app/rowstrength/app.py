@@ -3,26 +3,20 @@ import re
 import json
 import asyncio
 from importlib import resources
+
 import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN, ROW
 
 # ---------- Константы ----------
 DISTANCES = [500, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000]
-GENDERS_UI = {"ж": "female", "м": "male"}
-EXERCISES_UI_TO_KEY = {"жим": "bench-press", "присед": "squat", "становая тяга": "deadlift"}
-EXERCISES_KEY_TO_RU = {"bench-press": "Жим", "squat": "Присед", "deadlift": "Становая тяга"}
-MODE_CHOICES = ["Эргометр", "Штанга"]
-
 REPS_TABLE = {
     1: 100, 2: 97, 3: 94, 4: 92, 5: 89, 6: 86, 7: 83, 8: 81, 9: 78, 10: 75,
     11: 73, 12: 71, 13: 70, 14: 68, 15: 67, 16: 65, 17: 64, 18: 63, 19: 61,
     20: 60, 21: 59, 22: 58, 23: 57, 24: 56, 25: 55, 26: 54, 27: 53, 28: 52,
     29: 51, 30: 50
 }
-
-# Фиксированный размер окна (ширина, высота)
-WINDOW_SIZE = (1000, 600)
+WINDOW_SIZE = (1000, 750)
 
 # ---------- Стили ----------
 IS_IOS = (sys.platform == "ios")
@@ -40,30 +34,131 @@ S_INPUT = Pack(font_size=F_INPUT)
 S_BTN = Pack(margin_top=6, margin_bottom=6)
 S_OUT = Pack(height=140, font_size=F_INPUT, margin_top=4)
 
+# ---------- Локализация ----------
+LANGS = ["en", "de", "fr", "es", "ru"]
+LANG_LABEL = {
+    "en": "English", "de": "Deutsch", "fr": "Français", "es": "Español", "ru": "Русский"
+}
+T = {
+    "app_title": {l: "RowStrength" for l in LANGS},
+    "splash": {l: "Dev by Dudhen: @arseny.dudhen" for l in LANGS},
+    "language": {"en": "Language", "de": "Sprache", "fr": "Langue", "es": "Idioma", "ru": "Язык"},
+    "mode_label": {"en": "Mode", "de": "Modus", "fr": "Mode", "es": "Modo", "ru": "Режим"},
+    "mode_erg": {"en": "Ergometer", "de": "Ergometer", "fr": "Ergomètre", "es": "Ergómetro", "ru": "Эргометр"},
+    "mode_bar": {"en": "Barbell", "de": "Langhantel", "fr": "Barre", "es": "Barra", "ru": "Штанга"},
+    "gender": {"en": "Gender", "de": "Geschlecht", "fr": "Sexe", "es": "Sexo", "ru": "Пол"},
+    "female": {"en": "Female", "de": "Weiblich", "fr": "Femme", "es": "Mujer", "ru": "ж"},
+    "male": {"en": "Male", "de": "Männlich", "fr": "Homme", "es": "Hombre", "ru": "м"},
+    "weight": {"en": "Body weight (kg)", "de": "Körpergewicht (kg)", "fr": "Poids (kg)", "es": "Peso corporal (kg)",
+               "ru": "Вес (кг)"},
+    "distance": {"en": "Distance", "de": "Distanz", "fr": "Distance", "es": "Distancia", "ru": "Дистанция"},
+    "minutes": {"en": "Min", "de": "Min", "fr": "Min", "es": "Min", "ru": "Мин"},
+    "seconds": {"en": "Sec", "de": "Sek", "fr": "Sec", "es": "Seg", "ru": "Сек"},
+    "centis": {"en": "Tenths", "de": "Zehntel", "fr": "Dixièmes", "es": "Décimas", "ru": "Сотые"},
+    "exercise": {"en": "Exercise", "de": "Übung", "fr": "Exercice", "es": "Ejercicio", "ru": "Упражнение"},
+    "bar_weight": {"en": "Bar weight (kg)", "de": "Hantelgewicht (kg)", "fr": "Charge (kg)", "es": "Peso en barra (kg)",
+                   "ru": "Вес на штанге (кг)"},
+    "reps": {"en": "Reps", "de": "Wdh.", "fr": "Répétitions", "es": "Reps", "ru": "Повторы"},
+    "calc": {"en": "Calculate", "de": "Berechnen", "fr": "Calculer", "es": "Calcular", "ru": "Рассчитать"},
+    "res1_title": {
+        "en": "⏱ Results across distances", "de": "⏱ Ergebnisse über Distanzen",
+        "fr": "⏱ Résultats par distances", "es": "⏱ Resultados por distancias", "ru": "⏱ Результаты по дистанциям",
+    },
+    "res1_strength_title": {
+        "en": "🏋️ Barbell equivalents (bodyweight-adjusted)",
+        "de": "🏋️ Hantel-Äquivalente (mit Körpergewicht)",
+        "fr": "🏋️ Équivalents barre (pondérés par le poids)",
+        "es": "🏋️ Equivalentes con barra (ajustado por peso)",
+        "ru": "🏋️ Эквиваленты в штанге с учётом вашего собственного веса",
+    },
+    "res2_title": {
+        "en": "🏋️ 1 rep max and 2k ergometer equivalent",
+        "de": "🏋️ 1 Wdh.-Max. und 2-km-Ergo-Äquivalent",
+        "fr": "🏋️ 1 rep max et équivalent 2 km ergomètre",
+        "es": "🏋️ 1 rep máx y equivalente 2 km ergómetro",
+        "ru": "🏋️ Разовый максимум и эквивалент на эргометре 2 км",
+    },
+    "err_no_data": {
+        "en": "No data for selected distance/gender",
+        "de": "Keine Daten für Distanz/Geschlecht",
+        "fr": "Pas de données pour la distance/genre",
+        "es": "No hay datos para distancia/sexo",
+        "ru": "Нет данных по выбранной дистанции/полу",
+    },
+    "err_time_range": {
+        "en": "Time out of range. Available: {a} .. {b}",
+        "de": "Zeit außerhalb des Bereichs. Verfügbar: {a} .. {b}",
+        "fr": "Temps hors plage. Disponible : {a} .. {b}",
+        "es": "Tiempo fuera de rango. Disponible: {a} .. {b}",
+        "ru": "Время вне диапазона. Доступно: от {a} до {b}",
+    },
+    "err_no_strength": {
+        "en": "No strength data for this body weight",
+        "de": "Keine Kraftdaten für dieses Körpergewicht",
+        "fr": "Pas de données de force pour ce poids",
+        "es": "No hay datos de fuerza para este peso",
+        "ru": "Нет силовых данных для указанного веса",
+    },
+    "err_reps": {
+        "en": "Supported reps: 1..30", "de": "Unterstützte Wiederholungen: 1..30",
+        "fr": "Répétitions prises en charge : 1..30", "es": "Repeticiones soportadas: 1..30",
+        "ru": "Поддерживаются повторы 1..30",
+    },
+    "err_1rm_map": {
+        "en": "Unable to map to 1 rep max percent",
+        "de": "Zuordnung zu 1 Wdh.-Max.-Prozent nicht möglich",
+        "fr": "Impossible d'associer au pourcentage de 1 rep max",
+        "es": "No se pudo mapear al porcentaje de 1 rep máx",
+        "ru": "Не удалось сопоставить проценты для разового максимума",
+    },
+    "res_1rm": {
+        "en": "Estimated 1 rep max: {v} kg", "de": "Geschätztes 1 Wdh.-Max.: {v} kg",
+        "fr": "1 rep max estimé : {v} kg", "es": "1 rep máx. estimado: {v} kg",
+        "ru": "Оценка разового максимума: {v} кг",
+    },
+    "res_2k": {
+        "en": "2k ergometer equivalent: {v}", "de": "2-km-Ergo-Äquivalent: {v}",
+        "fr": "Équivalent ergomètre 2 km : {v}", "es": "Equivalente ergómetro 2 km: {v}",
+        "ru": "Эквивалент на эргометре 2 км: {v}",
+    },
+    "ex_bench": {"en": "Bench press", "de": "Bankdrücken", "fr": "Développé couché", "es": "Press banca", "ru": "Жим"},
+    "ex_squat": {"en": "Squat", "de": "Kniebeuge", "fr": "Squat", "es": "Sentadilla", "ru": "Присед"},
+    "ex_deadlift": {"en": "Deadlift", "de": "Kreuzheben", "fr": "Soulevé de terre", "es": "Peso muerto",
+                    "ru": "Становая тяга"},
+}
+EX_UI_TO_KEY = {
+    lang: {
+        T["ex_bench"][lang]: "bench-press",
+        T["ex_squat"][lang]: "squat",
+        T["ex_deadlift"][lang]: "deadlift",
+    } for lang in LANGS
+}
+EX_KEY_TO_LABEL = {lang: {v: k for k, v in EX_UI_TO_KEY[lang].items()} for lang in LANGS}
+GENDER_LABELS = {lang: [T["female"][lang], T["male"][lang]] for lang in LANGS}
+GENDER_MAP = {lang: {GENDER_LABELS[lang][0]: "female", GENDER_LABELS[lang][1]: "male"} for lang in LANGS}
+
 
 # ---------- Утилиты ----------
 def get_split_500m(distance: str, time: str) -> str:
     m = re.search(r'\d+', distance)
     if not m:
-        raise ValueError("Некорректная дистанция")
+        raise ValueError("Bad distance")
     meters = int(m.group())
     if meters <= 0:
-        raise ValueError("Дистанция должна быть > 0")
-
+        raise ValueError("Distance must be > 0")
     m = re.fullmatch(r'\s*(\d{1,2}):(\d{2})\s*', time)
     if not m:
-        raise ValueError("Время должно быть в формате MM:SS")
+        raise ValueError("Time must be MM:SS")
     mm, ss = int(m.group(1)), int(m.group(2))
     if ss >= 60:
-        raise ValueError("Секунды должны быть < 60")
-
+        raise ValueError("Seconds < 60")
     total_sec = mm * 60 + ss
     tenths_total = round(total_sec * 10 / (meters / 500))
     mins = tenths_total // 600
     sec_tenths = tenths_total % 600
     secs = sec_tenths // 10
     tenth = sec_tenths % 10
-    return f"{mins:02d}:{secs:02d}.{tenth}/500м"
+    return f"{mins:02d}:{secs:02d}.{tenth}/500m"
 
 
 def load_json_from_package(filename: str):
@@ -100,10 +195,14 @@ def _two(n: int) -> str:
 
 # ---------- Приложение ----------
 class RowStrengthApp(toga.App):
-    # --------- Этап 1: показываем сплэш и через 3 сек строим UI ----------
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.lang = "en"
+        self._updating = False
+
+    # --------- Сплэш ----------
     def startup(self):
-        # Окно: фиксированный размер + запрет ресайза
-        self.main_window = toga.MainWindow(title=self.formal_name, size=WINDOW_SIZE)
+        self.main_window = toga.MainWindow(title="RowStrength", size=WINDOW_SIZE)
         try:
             self.main_window.resizeable = False
         except Exception:
@@ -112,40 +211,48 @@ class RowStrengthApp(toga.App):
             except Exception:
                 pass
 
-        # Контент сплэша
         splash_label = toga.Label(
-            "Dev by Dudhen: @arseny.dudhen",
-            style=Pack(font_size=18, text_align="center", margin_top=200, color='#6A5ACD')
+            T["splash"][self.lang],
+            style=Pack(font_size=18, text_align="center", margin_top=200, color="#6A5ACD")
         )
-        splash_box = toga.Box(
-            children=[splash_label],
-            style=Pack(direction=COLUMN, alignment="center", flex=1, margin=40)
-        )
+        splash_box = toga.Box(children=[splash_label],
+                              style=Pack(direction=COLUMN, align_items="center", flex=1, margin=40))
         self.main_window.content = splash_box
         self.main_window.show()
 
-        # Через 3 секунды — собираем основной UI
+        # Неблокирующая задержка, без add_background_task
         loop = asyncio.get_event_loop()
         loop.call_later(3, self._init_ui)
 
-    # --------- Этап 2: основной UI ----------
+    # --------- Основной UI ----------
     def _init_ui(self):
-        # Данные
+        # данные
         self.rowing_data = load_json_from_package("data_for_rowing_app.json")
         self.strength_data_all = load_json_from_package("data_for_strength_app.json")
 
-        # Заголовок
-        title = toga.Label("RowStrength", style=S_HEAD)
+        # заголовок и язык
+        self.title_label = toga.Label("", style=S_HEAD)
+        self.lang_caption = toga.Label("", style=S_LABEL)
+        self.lang_sel = toga.Selection(
+            items=[LANG_LABEL[c] for c in LANGS],
+            value=LANG_LABEL[self.lang],
+            on_change=self._on_lang_changed,
+            style=S_INPUT
+        )
 
-        # Режим
-        self.mode_widget = self._make_mode_widget()
-
-        # Общие поля
-        self.gender = toga.Selection(items=["ж", "м"], value="м",
+        # общие поля (для обеих вкладок, сверху)
+        self.gender_caption = toga.Label("", style=S_LABEL)
+        self.gender = toga.Selection(items=GENDER_LABELS[self.lang], value=GENDER_LABELS[self.lang][1],
                                      on_change=self._on_gender_changed, style=S_INPUT)
+        self.weight_caption = toga.Label("", style=S_LABEL)
         self.weight = toga.NumberInput(step=1, min=40, max=140, value=80, style=S_INPUT)
 
-        # ----- Ввод «Эргометр»
+        # -------- Эргометр (вкладка 1) --------
+        self.distance_caption = toga.Label("", style=S_LABEL)
+        self.minutes_caption = toga.Label("", style=S_LABEL)
+        self.seconds_caption = toga.Label("", style=S_LABEL)
+        self.centis_caption = toga.Label("", style=S_LABEL)
+
         self.distance = toga.Selection(items=[str(d) for d in DISTANCES], value="2000",
                                        on_change=self._on_distance_changed, style=S_INPUT)
         self.time_min = toga.Selection(items=["06"], value="06",
@@ -153,122 +260,201 @@ class RowStrengthApp(toga.App):
         self.time_sec = toga.Selection(items=[_two(i) for i in range(60)], value="00", style=S_INPUT)
         self.time_ms = toga.Selection(items=[str(i) for i in range(10)], value="0", style=S_INPUT)
 
-        self.res1_title = toga.Label("⏱ Результаты по дистанциям", style=S_LABEL)
+        self.res1_title = toga.Label("", style=S_LABEL)
         self.res1_output = toga.MultilineTextInput(readonly=True, style=S_OUT)
-        self.res1_strength_title = toga.Label("🏋️ Эквиваленты в штанге с учётом вашего собственного веса",
-                                              style=S_LABEL)
+        self.res1_strength_title = toga.Label("", style=S_LABEL)
         self.res1_output_strength = toga.MultilineTextInput(readonly=True, style=S_OUT)
 
-        self.mode1_box = toga.Box(
-            children=[
-                toga.Label("Дистанция:", style=S_LABEL), self.distance,
-                toga.Label("Мин:", style=S_LABEL), self.time_min,
-                toga.Label("Сек:", style=S_LABEL), self.time_sec,
-                toga.Label("Сотые:", style=S_LABEL), self.time_ms,
-            ],
-            style=S_ROW
-        )
+        self.mode1_box = toga.Box(children=[
+            self.distance_caption, self.distance,
+            self.minutes_caption, self.time_min,
+            self.seconds_caption, self.time_sec,
+            self.centis_caption, self.time_ms,
+        ], style=S_ROW)
+        self.calc_button_erg = toga.Button("", on_press=self.calculate_erg, style=S_BTN)
         self.mode1_results_box = toga.Box(
             children=[self.res1_title, self.res1_output, self.res1_strength_title, self.res1_output_strength],
             style=Pack(direction=COLUMN, gap=10, margin_top=4)
         )
+        self.erg_container = toga.Box(
+            children=[self.mode1_box, self.calc_button_erg, self.mode1_results_box],
+            style=Pack(direction=COLUMN, gap=8)
+        )
 
-        # ----- Ввод «Штанга»
-        self.exercise = toga.Selection(items=[i.capitalize() for i in list(EXERCISES_UI_TO_KEY.keys())],
-                                       value="Жим", style=S_INPUT)
+        # -------- Штанга (вкладка 2) --------
+        self.exercise_caption = toga.Label("", style=S_LABEL)
+        # значения упражнений зависят от языка
+        self.exercise = toga.Selection(items=list(EX_UI_TO_KEY[self.lang].keys()),
+                                       value=list(EX_UI_TO_KEY[self.lang].keys())[0], style=S_INPUT)
+        self.bar_weight_caption = toga.Label("", style=S_LABEL)
         self.bar_weight = toga.NumberInput(step=1, min=1, value=100, style=S_INPUT)
+        self.reps_caption = toga.Label("", style=S_LABEL)
         self.reps = toga.NumberInput(step=1, min=1, max=30, value=5, style=S_INPUT)
 
-        self.res2_title = toga.Label("🏋️ 1ПМ и эквивалент на эргометре 2 км", style=S_LABEL)
+        self.res2_title = toga.Label("", style=S_LABEL)
         self.res2_output = toga.MultilineTextInput(readonly=True, style=S_OUT)
 
-        self.mode2_box = toga.Box(
-            children=[toga.Label("Упражнение:", style=S_LABEL), self.exercise,
-                      toga.Label("Вес на штанге (кг):", style=S_LABEL), self.bar_weight,
-                      toga.Label("Повторы:", style=S_LABEL), self.reps],
-            style=S_ROW
+        self.mode2_box = toga.Box(children=[
+            self.exercise_caption, self.exercise,
+            self.bar_weight_caption, self.bar_weight,
+            self.reps_caption, self.reps
+        ], style=S_ROW)
+        self.calc_button_bar = toga.Button("", on_press=self.calculate_bar, style=S_BTN)
+        self.mode2_results_box = toga.Box(children=[self.res2_title, self.res2_output],
+                                          style=Pack(direction=COLUMN, gap=10, margin_top=4))
+        self.bar_container = toga.Box(
+            children=[self.mode2_box, self.calc_button_bar, self.mode2_results_box],
+            style=Pack(direction=COLUMN, gap=8)
         )
-        self.mode2_results_box = toga.Box(
-            children=[self.res2_title, self.res2_output],
-            style=Pack(direction=COLUMN, gap=10, margin_top=4)
-        )
 
-        # ----- Стэки, куда перекладываем блоки нужного режима
-        self.input_stack = toga.Box(style=Pack(direction=COLUMN, gap=8))
-        self.results_stack = toga.Box(style=Pack(direction=COLUMN, gap=8))
+        self.erg_page = toga.ScrollContainer(content=self.erg_container)
+        self.bar_page = toga.ScrollContainer(content=self.bar_container)
 
-        # Кнопка — сразу после ввода
-        self.calc_button = toga.Button("Рассчитать", on_press=self.calculate, style=S_BTN)
+        # ----- Контейнер вкладок -----
+        self.tabs_holder = toga.Box(style=Pack(direction=COLUMN, flex=1))
+        self._build_tabs()  # создаём OptionContainer и кладём в holder
 
-        # Шапка
-        head_row = toga.Box(children=[toga.Label("RowStrength", style=S_HEAD)],
-                            style=Pack(direction=ROW, margin_bottom=8))
-        mode_row = toga.Box(children=[toga.Label("Режим:", style=S_LABEL), self.mode_widget], style=S_ROW)
-        common_row = toga.Box(children=[toga.Label("Пол:", style=S_LABEL), self.gender,
-                                        toga.Label("Вес (кг):", style=S_LABEL), self.weight], style=S_ROW)
+        # Компоновка верхней части
+        head_row = toga.Box(children=[self.title_label], style=Pack(direction=ROW, margin_bottom=8))
+        lang_row = toga.Box(children=[self.lang_caption, self.lang_sel], style=S_ROW)
+        common_row = toga.Box(children=[self.gender_caption, self.gender,
+                                        self.weight_caption, self.weight], style=S_ROW)
 
-        # Основной контейнер: ввод → кнопка → результаты
-        main_box = toga.Box(
-            children=[head_row, mode_row, common_row, self.input_stack, self.calc_button, self.results_stack],
-            style=S_MAIN
-        )
+        main_box = toga.Box(children=[
+            head_row, lang_row, common_row,
+            self.tabs_holder  # тут наши вкладки
+        ], style=S_MAIN)
+
         scroller = toga.ScrollContainer(content=main_box)
 
-        # Инициализация и установка активных блоков
+        # Локализация текстов и первичная инициализация
+        self._apply_language()
         self._rebuild_time_selects()
-        self._set_mode_ui()
 
-        # Подменяем контент окна со сплэша на основной UI
         self.main_window.content = scroller
 
-    # ---- вспомогательные методы UI ----
-    def _make_mode_widget(self):
-        if IS_IOS and hasattr(toga, "SegmentedButton"):
-            widget = toga.SegmentedButton(items=MODE_CHOICES, on_change=self._on_mode_changed)
-            widget.value = MODE_CHOICES[0]
-            return widget
-        else:
-            return toga.Selection(items=MODE_CHOICES, value=MODE_CHOICES[0],
-                                  on_change=self._on_mode_changed, style=S_INPUT)
+    # ---------- Tabs ----------
+    def _build_tabs(self):
+        # очистить holder
+        for c in list(self.tabs_holder.children):
+            self.tabs_holder.remove(c)
 
-    def _get_mode_value(self) -> str:
-        return self.mode_widget.value
+        try:
+            # чаще всего порядок (label, widget)
+            self.tabs = toga.OptionContainer(
+                content=[(self.tr("mode_erg"), self.erg_page),
+                         (self.tr("mode_bar"), self.bar_page)],
+                style=Pack(flex=1)  # <-- растягиваемся по высоте
+            )
+        except TypeError:
+            # fallback на обратный порядок (widget, label)
+            self.tabs = toga.OptionContainer(
+                content=[(self.erg_page, self.tr("mode_erg")),
+                         (self.bar_page, self.tr("mode_bar"))],
+                style=Pack(flex=1)
+            )
 
-    def _replace_children(self, box: toga.Box, new_children):
-        for child in list(box.children):
-            box.remove(child)
-        for child in new_children:
-            box.add(child)
+        self.tabs_holder.add(self.tabs)
 
-    def _set_mode_ui(self):
-        mode = self._get_mode_value()
-        if mode == "Эргометр":
-            self._replace_children(self.input_stack, [self.mode1_box])
-            self._replace_children(self.results_stack, [self.mode1_results_box])
-        else:
-            self._replace_children(self.input_stack, [self.mode2_box])
-            self._replace_children(self.results_stack, [self.mode2_results_box])
+    def _retitle_tabs(self):
+        """Обновляет заголовки вкладок при смене языка."""
+        # Самый надёжный способ на 0.5.2 — пересоздать OptionContainer с новыми label.
+        self._build_tabs()
 
-    def _on_mode_changed(self, widget):
-        self._set_mode_ui()
+    # ---- локализация UI ----
+    def tr(self, key):
+        return T[key][self.lang]
+
+    def _set_selection(self, sel: toga.Selection, items=None, value=None):
+        """Безопасное обновление Selection без зацикливания on_change."""
+        self._updating = True
+        try:
+            if items is not None:
+                if list(getattr(sel, "items", [])) != list(items):
+                    sel.items = items
+            if value is not None:
+                if getattr(sel, "value", None) != value:
+                    sel.value = value
+        finally:
+            self._updating = False
+
+    def _apply_language(self):
+        # простые Label
+        self.title_label.text = self.tr("app_title")
+        self.lang_caption.text = self.tr("language")
+        self.gender_caption.text = self.tr("gender")
+        self.weight_caption.text = self.tr("weight")
+        self.distance_caption.text = self.tr("distance")
+        self.minutes_caption.text = self.tr("minutes")
+        self.seconds_caption.text = self.tr("seconds")
+        self.centis_caption.text = self.tr("centis")
+        self.res1_title.text = self.tr("res1_title")
+        self.res1_strength_title.text = self.tr("res1_strength_title")
+        self.exercise_caption.text = self.tr("exercise")
+        self.bar_weight_caption.text = self.tr("bar_weight")
+        self.reps_caption.text = self.tr("reps")
+        self.res2_title.text = self.tr("res2_title")
+        self.calc_button_erg.text = self.tr("calc")
+        self.calc_button_bar.text = self.tr("calc")
+
+        # язык
+        self._set_selection(self.lang_sel,
+                            items=[LANG_LABEL[c] for c in LANGS],
+                            value=LANG_LABEL[self.lang])
+
+        # пол
+        cur_gender_value = self.gender.value
+        self._set_selection(self.gender,
+                            items=GENDER_LABELS[self.lang],
+                            value=cur_gender_value if cur_gender_value in GENDER_LABELS[self.lang]
+                            else GENDER_LABELS[self.lang][1])
+
+        # упражнения
+        old_ex = self.exercise.value
+        ex_items = list(EX_UI_TO_KEY[self.lang].keys())
+        self._set_selection(self.exercise,
+                            items=ex_items,
+                            value=old_ex if old_ex in ex_items else ex_items[0])
+
+        # заголовки вкладок
+        self._retitle_tabs()
+
+    # ---- handlers ----
+    def _on_lang_changed(self, widget):
+        if self._updating:
+            return
+        inv = {v: k for k, v in LANG_LABEL.items()}
+        self.lang = inv.get(self.lang_sel.value, "en")
+        self._apply_language()
+        self._rebuild_time_selects()
+        self._clear_results()
+
+    def _clear_results(self):
+        # очищаем результаты обоих режимов
+        if hasattr(self, "res1_output"):
+            self.res1_output.value = ""
+        if hasattr(self, "res1_output_strength"):
+            self.res1_output_strength.value = ""
+        if hasattr(self, "res2_output"):
+            self.res2_output.value = ""
 
     def _on_distance_changed(self, widget):
+        if self._updating:
+            return
         self._rebuild_time_selects()
 
     def _on_gender_changed(self, widget):
+        if self._updating:
+            return
         self._rebuild_time_selects()
 
     def _on_time_min_changed(self, widget):
-        pass  # секунды всегда 00..59
+        pass
 
     def _rebuild_time_selects(self):
-        """Минуты — из JSON для выбранных пола/дистанции. Секунды — 00..59."""
-        try:
-            g_key = GENDERS_UI[self.gender.value]
-        except Exception:
-            g_key = "male"
+        g_label = self.gender.value
+        g_key = GENDER_MAP[self.lang].get(g_label, "male")
         distance = int(self.distance.value)
-
         distance_data = get_distance_data(g_key, distance, self.rowing_data)
         (min_mm, _), (max_mm, _) = _parse_time_range_from_data(distance_data)
         if not distance_data:
@@ -276,105 +462,114 @@ class RowStrengthApp(toga.App):
 
         minutes_items = [_two(i) for i in range(min_mm, max_mm + 1)]
         prev_min = self.time_min.value if self.time_min.value in minutes_items else _two(min_mm)
-        self.time_min.items = minutes_items
-        self.time_min.value = prev_min
+        self._set_selection(self.time_min, items=minutes_items, value=prev_min)
 
         sec_items = [_two(i) for i in range(60)]
         prev_sec = self.time_sec.value if self.time_sec.value in sec_items else "00"
-        self.time_sec.items = sec_items
-        self.time_sec.value = prev_sec
+        self._set_selection(self.time_sec, items=sec_items, value=prev_sec)
 
         if self.time_ms.value is None:
             self.time_ms.value = "0"
 
     # ---- бизнес-логика ----
-    def calculate(self, widget):
+    def calculate_erg(self, widget):
         def _meters_from_key(k) -> int:
             m = re.search(r"\d+", str(k))
             return int(m.group()) if m else 0
 
         try:
-            g_key = GENDERS_UI[self.gender.value]
+            g_key = GENDER_MAP[self.lang].get(self.gender.value, "male")
             weight = int(self.weight.value)
 
-            if self._get_mode_value() == "Эргометр":
-                distance = int(self.distance.value)
-                distance_data = get_distance_data(g_key, distance, self.rowing_data)
-                if not distance_data:
-                    raise ValueError("Нет данных по выбранной дистанции/полу")
+            distance = int(self.distance.value)
+            distance_data = get_distance_data(g_key, distance, self.rowing_data)
+            if not distance_data:
+                raise ValueError(T["err_no_data"][self.lang])
 
-                t_norm = f"{self.time_min.value}:{self.time_sec.value}"
-                distance_data_time = distance_data.get(t_norm) or distance_data.get(t_norm.lstrip("0"))
-                if not distance_data_time:
-                    times_str = list(distance_data.keys())
-                    raise ValueError(f"Время вне диапазона. Доступно: от {times_str[0]} до {times_str[-1]}")
+            t_norm = f"{self.time_min.value}:{self.time_sec.value}"
+            distance_data_time = distance_data.get(t_norm) or distance_data.get(t_norm.lstrip("0"))
+            if not distance_data_time:
+                times_str = list(distance_data.keys())
+                raise ValueError(T["err_time_range"][self.lang].format(a=times_str[0], b=times_str[-1]))
 
-                percent = distance_data_time.get("percent")
-                strength = get_strength_data(g_key, weight, self.strength_data_all)
-                if not strength:
-                    raise ValueError("Нет силовых данных для указанного веса")
+            percent = distance_data_time.get("percent")
+            strength = get_strength_data(g_key, weight, self.strength_data_all)
+            if not strength:
+                raise ValueError(T["err_no_strength"][self.lang])
 
-                # Результаты по дистанциям
-                keys = [kk for kk in distance_data_time.keys() if kk != "percent"]
-                keys.sort(key=_meters_from_key)
-                lines_dist = []
-                for k in keys:
-                    v = distance_data_time[k]
-                    meters = _meters_from_key(k)
-                    lines_dist.append(f"{meters} м — {v}.00 ({get_split_500m(distance=str(meters), time=v)})")
-                self.res1_output.value = "\n".join(lines_dist)
+            keys = [kk for kk in distance_data_time.keys() if kk != "percent"]
+            keys.sort(key=_meters_from_key)
+            lines_dist = []
+            for k in keys:
+                v = distance_data_time[k]
+                meters = _meters_from_key(k)
+                split = get_split_500m(distance=str(meters), time=v)
+                # единицы оставлю в "m" и "kg" для универсальности
+                lines_dist.append(f"{meters} m — {v}.00 ({split})")
+            self.res1_output.value = "\n".join(lines_dist)
 
-                # Эквиваленты в штанге
-                lines_str = []
-                for ex_key, ex_label_ru in EXERCISES_KEY_TO_RU.items():
-                    kilo = strength.get(ex_key, {}).get(percent)
-                    if kilo == "1":
-                        vmap = strength.get(ex_key, {})
-                        kilo = round((float(kilo) + float(vmap.get("1"))) / 2, 2)
-                    lines_str.append(f"{ex_label_ru}: {kilo} кг")
-                self.res1_output_strength.value = "\n".join(lines_str)
-
-            else:
-                ex_key = EXERCISES_UI_TO_KEY[self.exercise.value.lower()]
-                bar_w = float(self.bar_weight.value)
-                reps = int(self.reps.value)
-                if reps not in REPS_TABLE:
-                    raise ValueError("Поддерживаются повторы 1..30")
-
-                rep_max = round((bar_w / REPS_TABLE[reps]) * 100, 2)
-
-                strength_for_user = get_strength_data(g_key, weight, self.strength_data_all)
-                if not strength_for_user:
-                    raise ValueError("Нет силовых данных для указанного веса")
-
-                ex_table = strength_for_user.get(ex_key, {})
-                i_percent = None
-                for pct_str, val in ex_table.items():
-                    if float(val) <= rep_max:
-                        i_percent = float(pct_str)
-                    else:
-                        break
-                if i_percent is None:
-                    raise ValueError("Не удалось сопоставить проценты для 1ПМ")
-
-                distance_data = get_distance_data(g_key, 2000, self.rowing_data)
-                km2_res = None
-                for k, v in distance_data.items():
-                    km2_res = k
-                    if float(v.get("percent")) < i_percent:
-                        break
-
-                self.res2_output.value = "\n".join([
-                    f"Оценка 1ПМ: {rep_max} кг",
-                    f"Эквивалент на эргометре 2 км: {km2_res}"
-                ])
+            ex_labels = EX_KEY_TO_LABEL[self.lang]
+            lines_str = []
+            for ex_key, label in ex_labels.items():
+                kilo = strength.get(ex_key, {}).get(percent)
+                if kilo == "1":
+                    vmap = strength.get(ex_key, {})
+                    kilo = round((float(kilo) + float(vmap.get("1"))) / 2, 2)
+                lines_str.append(f"{label}: {kilo} kg")
+            self.res1_output_strength.value = "\n".join(lines_str)
 
         except Exception as e:
             try:
-                exc_type, exc_obj, exc_tb = sys.exc_info()
-                self.main_window.error_dialog("Ошибка", f"{str(e)}, line {exc_tb.tb_lineno}")
+                import traceback
+                self.main_window.error_dialog("Error", f"{e}\n\n{traceback.format_exc()}")
             except Exception:
-                print("Ошибка:", e)
+                print("Error:", e)
+
+    def calculate_bar(self, widget):
+        try:
+            g_key = GENDER_MAP[self.lang].get(self.gender.value, "male")
+            weight = int(self.weight.value)
+
+            ex_key = EX_UI_TO_KEY[self.lang][self.exercise.value]
+            bar_w = float(self.bar_weight.value)
+            reps = int(self.reps.value)
+            if reps not in REPS_TABLE:
+                raise ValueError(T["err_reps"][self.lang])
+
+            rep_max = round((bar_w / REPS_TABLE[reps]) * 100, 2)
+
+            strength_for_user = get_strength_data(g_key, weight, self.strength_data_all)
+            if not strength_for_user:
+                raise ValueError(T["err_no_strength"][self.lang])
+
+            ex_table = strength_for_user.get(ex_key, {})
+            i_percent = None
+            for pct_str, val in ex_table.items():
+                if float(val) <= rep_max:
+                    i_percent = float(pct_str)
+                else:
+                    break
+            if i_percent is None:
+                raise ValueError(T["err_1rm_map"][self.lang])
+
+            distance_data = get_distance_data(g_key, 2000, self.rowing_data)
+            km2_res = None
+            for k, v in distance_data.items():
+                km2_res = k
+                if float(v.get("percent")) < i_percent:
+                    break
+
+            self.res2_output.value = "\n".join([
+                T["res_1rm"][self.lang].format(v=rep_max),
+                T["res_2k"][self.lang].format(v=km2_res)
+            ])
+
+        except Exception as e:
+            try:
+                import traceback
+                self.main_window.error_dialog("Error", f"{e}\n\n{traceback.format_exc()}")
+            except Exception:
+                print("Error:", e)
 
 
 def main():
