@@ -26,7 +26,7 @@ F_INPUT = 16 if IS_IOS else 14
 PAD_MAIN = 16 if IS_IOS else 14
 
 # Нежная тема
-CLR_HEADER_BG = "#EAE4FF"
+CLR_HEADER_BG = "#D9CCFF"
 CLR_BTN_BG = "#D9CCFF"
 CLR_BTN_FG = "#2B1C7A"
 CLR_ACCENT = "#6A5ACD"
@@ -242,7 +242,7 @@ class RowStrengthApp(toga.App):
         # Верхняя фиолетовая шапка
         header_label = toga.Label(
             "RowStrength by Dudhen",
-            style=Pack(font_size=F_HEAD, text_align="center", color="#1E1B4B", padding=8)
+            style=Pack(font_size=F_HEAD, text_align="center", color="#501c59", padding=8)
         )
         header_row = toga.Box(
             style=Pack(direction=ROW, background_color=CLR_HEADER_BG, padding_left=8, padding_right=8))
