@@ -20,25 +20,41 @@ WINDOW_SIZE = (1000, 750)
 
 # ---------- Платформа/цвета/стили ----------
 IS_IOS = (sys.platform == "ios")
-F_HEAD  = 22 if IS_IOS else 18
+F_HEAD = 22 if IS_IOS else 18
 F_LABEL = 16 if IS_IOS else 14
 F_INPUT = 16 if IS_IOS else 14
 PAD_MAIN = 16 if IS_IOS else 14
 
 # Нежная тема
 CLR_HEADER_BG = "#EAE4FF"
-CLR_BTN_BG    = "#D9CCFF"
-CLR_BTN_FG    = "#2B1C7A"
-CLR_ACCENT    = "#6A5ACD"
+CLR_BTN_BG = "#D9CCFF"
+CLR_BTN_FG = "#2B1C7A"
+CLR_ACCENT = "#6A5ACD"
+
 
 def S_MAIN():        return Pack(direction=COLUMN, padding=PAD_MAIN, flex=1)
+
+
 def S_ROW():         return Pack(direction=ROW, padding_bottom=6)
+
+
 def S_HEAD():        return Pack(font_size=F_HEAD, padding_bottom=6)
+
+
 def S_LABEL():       return Pack(font_size=F_LABEL, padding_right=8)
+
+
 def S_INPUT():       return Pack(font_size=F_INPUT, padding_right=10)
+
+
 def S_BTN():         return Pack(padding_top=8, padding_bottom=8, padding_left=12, padding_right=12)
+
+
 def S_OUT():         return Pack(height=140, font_size=F_INPUT, padding_top=4)
+
+
 def S_SECTION():     return Pack(direction=COLUMN)
+
 
 # ---------- Локализация ----------
 LANGS = ["en", "de", "fr", "es", "ru"]
@@ -60,7 +76,7 @@ T = {
     "distance": {"en": "Distance", "de": "Distanz", "fr": "Distance", "es": "Distancia", "ru": "Дистанция"},
     "minutes": {"en": "Min", "de": "Min", "fr": "Min", "es": "Min", "ru": "Мин"},
     "seconds": {"en": "Sec", "de": "Sek", "fr": "Sec", "es": "Seg", "ru": "Сек"},
-    "centis":  {"en": "Tenths", "de": "Zehntel", "fr": "Dixièmes", "es": "Décimas", "ru": "Сотые"},
+    "centis": {"en": "Tenths", "de": "Zehntel", "fr": "Dixièmes", "es": "Décimas", "ru": "Сотые"},
     "exercise": {"en": "Exercise", "de": "Übung", "fr": "Exercice", "es": "Ejercicio", "ru": "Упражнение"},
     "bar_weight": {"en": "Bar weight (kg)", "de": "Hantelgewicht (kg)", "fr": "Charge (kg)", "es": "Peso en barra (kg)",
                    "ru": "Вес на штанге (кг)"},
@@ -149,6 +165,7 @@ EX_KEY_TO_LABEL = {lang: {v: k for k, v in EX_UI_TO_KEY[lang].items()} for lang 
 GENDER_LABELS = {lang: [T["female"][lang], T["male"][lang]] for lang in LANGS}
 GENDER_MAP = {lang: {GENDER_LABELS[lang][0]: "female", GENDER_LABELS[lang][1]: "male"} for lang in LANGS}
 
+
 # ---------- Утилиты ----------
 def get_split_500m(distance: str, time: str) -> str:
     m = re.search(r'\d+', distance)
@@ -204,6 +221,7 @@ def _parse_time_range_from_data(distance_data):
 def _two(n: int) -> str:
     return f"{n:02d}"
 
+
 # ---------- Приложение ----------
 class RowStrengthApp(toga.App):
     def __init__(self, *args, **kwargs):
@@ -226,7 +244,8 @@ class RowStrengthApp(toga.App):
             "RowStrength by Dudhen",
             style=Pack(font_size=F_HEAD, text_align="center", color="#1E1B4B", padding=8)
         )
-        header_row = toga.Box(style=Pack(direction=ROW, background_color=CLR_HEADER_BG, padding_left=8, padding_right=8))
+        header_row = toga.Box(
+            style=Pack(direction=ROW, background_color=CLR_HEADER_BG, padding_left=8, padding_right=8))
         header_row.add(toga.Box(style=Pack(flex=1)))
         header_row.add(header_label)
         header_row.add(toga.Box(style=Pack(flex=1)))
@@ -236,8 +255,8 @@ class RowStrengthApp(toga.App):
             T["splash"][self.lang],
             style=Pack(font_size=18, text_align="center", color=CLR_ACCENT)
         )
-        top_pad    = toga.Box(style=Pack(flex=1))
-        mid_row    = toga.Box(style=Pack(direction=ROW))
+        top_pad = toga.Box(style=Pack(flex=1))
+        mid_row = toga.Box(style=Pack(direction=ROW))
         mid_row.add(toga.Box(style=Pack(flex=1)))
         mid_row.add(splash_label)
         mid_row.add(toga.Box(style=Pack(flex=1)))
@@ -353,16 +372,18 @@ class RowStrengthApp(toga.App):
         self.distance_caption = toga.Label("", style=S_LABEL())
         self.minutes_caption = toga.Label("", style=S_LABEL())
         self.seconds_caption = toga.Label("", style=S_LABEL())
-        self.centis_caption  = toga.Label("", style=S_LABEL())
+        self.centis_caption = toga.Label("", style=S_LABEL())
 
         self.distance = toga.Selection(items=[str(d) for d in DISTANCES], value="2000",
-                                       on_change=self._on_distance_changed, style=Pack(width=140, font_size=F_INPUT, padding_right=10))
+                                       on_change=self._on_distance_changed,
+                                       style=Pack(width=140, font_size=F_INPUT, padding_right=10))
         self.time_min = toga.Selection(items=["06"], value="06",
-                                       on_change=self._on_time_min_changed, style=Pack(width=120, font_size=F_INPUT, padding_right=10))
+                                       on_change=self._on_time_min_changed,
+                                       style=Pack(width=120, font_size=F_INPUT, padding_right=10))
         self.time_sec = toga.Selection(items=[_two(i) for i in range(60)], value="00",
                                        style=Pack(width=120, font_size=F_INPUT, padding_right=10))
-        self.time_ms  = toga.Selection(items=[str(i) for i in range(10)], value="0",
-                                       style=Pack(width=120, font_size=F_INPUT, padding_right=10))
+        self.time_ms = toga.Selection(items=[str(i) for i in range(10)], value="0",
+                                      style=Pack(width=120, font_size=F_INPUT, padding_right=10))
 
         self.res1_title = toga.Label("", style=S_LABEL())
         self.res1_output = toga.MultilineTextInput(readonly=True, style=S_OUT())
@@ -375,9 +396,11 @@ class RowStrengthApp(toga.App):
                                        value=list(EX_UI_TO_KEY[self.lang].keys())[0],
                                        style=Pack(width=180, font_size=F_INPUT, padding_right=10))
         self.bar_weight_caption = toga.Label("", style=S_LABEL())
-        self.bar_weight = toga.NumberInput(step=1, min=1, value=100, style=Pack(width=160, font_size=F_INPUT, padding_right=10))
+        self.bar_weight = toga.NumberInput(step=1, min=1, value=100,
+                                           style=Pack(width=160, font_size=F_INPUT, padding_right=10))
         self.reps_caption = toga.Label("", style=S_LABEL())
-        self.reps = toga.NumberInput(step=1, min=1, max=30, value=5, style=Pack(width=120, font_size=F_INPUT, padding_right=10))
+        self.reps = toga.NumberInput(step=1, min=1, max=30, value=5,
+                                     style=Pack(width=120, font_size=F_INPUT, padding_right=10))
 
         self.res2_title = toga.Label("", style=S_LABEL())
         self.res2_output = toga.MultilineTextInput(readonly=True, style=S_OUT())
@@ -419,12 +442,13 @@ class RowStrengthApp(toga.App):
                 toga.Box(children=[self.distance_caption, self.distance], style=S_ROW()),
                 toga.Box(children=[self.minutes_caption, self.time_min], style=S_ROW()),
                 toga.Box(children=[self.seconds_caption, self.time_sec], style=S_ROW()),
-                toga.Box(children=[self.centis_caption,  self.time_ms],  style=S_ROW()),
+                toga.Box(children=[self.centis_caption, self.time_ms], style=S_ROW()),
             ]
         else:
             row_distance = toga.Box(children=[self.distance_caption, self.distance], style=S_ROW())
             row_time = toga.Box(
-                children=[self.minutes_caption, self.time_min, self.seconds_caption, self.time_sec, self.centis_caption, self.time_ms],
+                children=[self.minutes_caption, self.time_min, self.seconds_caption, self.time_sec, self.centis_caption,
+                          self.time_ms],
                 style=S_ROW()
             )
             mode1_inputs_children = [row_distance, row_time]
@@ -448,8 +472,8 @@ class RowStrengthApp(toga.App):
             ]
         else:
             row_ex = toga.Box(children=[self.exercise_caption, self.exercise], style=S_ROW())
-            row_w  = toga.Box(children=[self.bar_weight_caption, self.bar_weight], style=S_ROW())
-            row_r  = toga.Box(children=[self.reps_caption, self.reps], style=S_ROW())
+            row_w = toga.Box(children=[self.bar_weight_caption, self.bar_weight], style=S_ROW())
+            row_r = toga.Box(children=[self.reps_caption, self.reps], style=S_ROW())
             mode2_inputs_children = [row_ex, row_w, row_r]
 
         self.mode2_inputs = toga.Box(children=mode2_inputs_children, style=S_SECTION())
@@ -500,7 +524,7 @@ class RowStrengthApp(toga.App):
             self._set_selection(self.distance, value=str(2000))
             self._set_selection(self.time_min, value=self.time_min.value or "06")
             self._set_selection(self.time_sec, value=self.time_sec.value or "00")
-            self._set_selection(self.time_ms,  value=self.time_ms.value  or "0")
+            self._set_selection(self.time_ms, value=self.time_ms.value or "0")
             # Упражнение оставляем как есть
         except Exception:
             pass
@@ -545,7 +569,7 @@ class RowStrengthApp(toga.App):
         self.distance_caption.text = self.tr("distance")
         self.minutes_caption.text = self.tr("minutes")
         self.seconds_caption.text = self.tr("seconds")
-        self.centis_caption.text  = self.tr("centis")
+        self.centis_caption.text = self.tr("centis")
         self.res1_title.text = self.tr("res1_title")
         self.res1_strength_title.text = self.tr("res1_strength_title")
         self.exercise_caption.text = self.tr("exercise")
@@ -567,7 +591,8 @@ class RowStrengthApp(toga.App):
         old_ex = getattr(self, "exercise", None)
         if old_ex:
             ex_items = list(EX_UI_TO_KEY[self.lang].keys())
-            self._set_selection(self.exercise, items=ex_items, value=self.exercise.value if self.exercise.value in ex_items else ex_items[0])
+            self._set_selection(self.exercise, items=ex_items,
+                                value=self.exercise.value if self.exercise.value in ex_items else ex_items[0])
 
         self._set_tab_titles()
 
